@@ -8,10 +8,8 @@ use App\Helpers\StringHelper;
 
 class Parser extends HtmlParser
 {
-    private const MAIN_DOMAIN = 'https://www.affinitechstore.com/store';
 
     private ?array $attrs = null;
-    private ?int $avail = null;
     private string $product = '';
     private string $upc = '';
     private $keys = [];
@@ -47,6 +45,9 @@ class Parser extends HtmlParser
             for($i=0; $i<$count; $i++){
                 $attr_key = $combined[0][$i];
                 $attr_val = $combined[1][$i];
+                if($attr_key === 'UPC:'){
+                    $this->upc = $attr_val;
+                }
                 $this->attrs[ StringHelper::normalizeSpaceInString( $attr_key ) ] = StringHelper::normalizeSpaceInString( $attr_val );
             }
         }
@@ -110,16 +111,7 @@ class Parser extends HtmlParser
 
     public function getAvail(): ?int
     {
-//        return self::DEFAULT_AVAIL_NUMBER;
-        return $this->avail;
+        return self::DEFAULT_AVAIL_NUMBER;
     }
 
-    public function getVideos(): array{
-        if($this->exists('#movie_player')){
-            echo PHP_EOL.'before video link'.PHP_EOL;
-            return $this->getAttr('a.ytp-impression-link', 'href');
-        }else{
-            return [];
-        }
-    }
 }
