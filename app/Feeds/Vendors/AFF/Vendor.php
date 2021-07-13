@@ -5,13 +5,14 @@ namespace App\Feeds\Vendors\AFF;
 use App\Feeds\Feed\FeedItem;
 use App\Feeds\Processor\HttpProcessor;
 use App\Feeds\Utils\Data;
+use App\Feeds\Utils\Link;
 use App\Feeds\Utils\ParserCrawler;
 
 
 class Vendor extends HttpProcessor
 {
-    public const CATEGORY_LINK_CSS_SELECTORS = [ 'div#emthemesModez-verticalCategories ul li.navPages-item a' ];
-    public const PRODUCT_LINK_CSS_SELECTORS = [ 'h4.card-title a', '#product-listing-container .pagination ul.pagination-list li a' ];
+    public const CATEGORY_LINK_CSS_SELECTORS = [ 'div#emthemesModez-verticalCategories ul li.navPages-item a'];
+    public const PRODUCT_LINK_CSS_SELECTORS = [ 'h4.card-title a' , 'div#product-listing-container .pagination ul li a' ];
 
     protected array $first = [ 'https://www.affinitechstore.com' ];
 
@@ -21,7 +22,6 @@ class Vendor extends HttpProcessor
         $crawler = new ParserCrawler( $data->getData());
         if($crawler->exists('.pagination')){
             $page = 2;
-//            https://www.affinitechstore.com/dome-cameras/?sort=pricedesc&page=2
             while(true){
                 $pagination_url = "$url?page=$page";
                 $pager_data = $this->getDownloader()->get($pagination_url);
