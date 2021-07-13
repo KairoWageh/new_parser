@@ -45,14 +45,18 @@ class Parser extends HtmlParser
             elseif ( stripos( $val, 'MSRP' ) !== false ) {
                 $this->list_price = StringHelper::getMoney( $val );
             }
+
         }
 
         if($this->exists('div.tabs-contents div#tab-addition div.productView-info-value a')){
             $this->filter( 'div.tabs-contents div#tab-addition div.productView-info-value a' )->each( function ( ParserCrawler $c ) {
                 if(stripos($c->attr('href'), '.pdf') !== false){
                     $this->files = [
-                        'link' => $c->attr('href'),
-                        'name' => $this->getProduct()
+                        [
+                            'link' => $c->attr('href'),
+                            'name' => $this->getProduct()
+                        ]
+
                     ];
                 }
             } );
