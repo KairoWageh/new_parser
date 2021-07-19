@@ -9,13 +9,16 @@ use App\Helpers\StringHelper;
 class Parser extends HtmlParser
 {
     private array $dims = [];
-    private ?array $attrs = null;
+    private ?array $attributes = null;
     private string $product = '';
     private string $upc = '';
-    private $keys = [];
-    private $vals = [];
-    private $files = [];
+    private array $files = [];
     private int $avail = 0;
+    private string $mpn = '';
+    private int $list_price = 0;
+    private array $attribute_key = [];
+    private array $attribute_value = [];
+    private string $full_description = '';
 
     public function beforeParse(): void
     {
@@ -45,9 +48,7 @@ class Parser extends HtmlParser
             elseif ( stripos( $val, 'MSRP' ) !== false ) {
                 $this->list_price = StringHelper::getMoney( $val );
             }
-
         }
-
         if($this->exists('div.tabs-contents div#tab-addition div.productView-info-value a')){
             $this->filter( 'div.tabs-contents div#tab-addition div.productView-info-value a' )->each( function ( ParserCrawler $c ) {
                 if(stripos($c->attr('href'), '.pdf') !== false){
@@ -56,28 +57,48 @@ class Parser extends HtmlParser
                             'link' => $c->attr('href'),
                             'name' => $this->getProduct()
                         ]
-
                     ];
                 }
             } );
         }
 
+        if($this->exists('#tab-description .productView-description-tabContent')){
+
+            $this->full_description = trim( $this->getHtml( '[itemprop="description"]' ) );
+            $pattern = "Features";
+            $regexpression = '/<table> .*/';
+            $replacemnet = '';
+
+            if(preg_match($regexpression, $this->full_description) == 1){
+                $html = str_get_html($regexpression);
+                $rows = $html->find('tr');
+                foreach ($rows as $row){
+                    foreach ($row->children() as $cell){
+                        if($this->exists('td.td')){
+                            $this->attribute_key[] = $this->getText('td.td');
+                        }
+                        if($this->exists('td.td2')){
+                            $this->attribute_value[] = $this->getText('td.td2');
+                        }
+                        $this->attributes = array_combine($this->attribute_key, $this->attribute_value);
+                    }
+                }
+            }
+            $this->full_description = preg_replace($regexpression, $replacemnet, $this->full_description);
+            if(str_contains($this->full_description, $pattern)){
+                $this->full_description = substr($this->full_description, 0, strpos($this->full_description, $pattern));
+            }
+        }
         $key = $this->getContent('dl.productView-info dt.productView-info-name');
-        array_push($this->keys, $key);
         $val = $this->getContent('dl.productView-info dd.productView-info-value');
-        array_push($this->vals, $val);
-        $combined = array_merge($this->keys, $this->vals);
+        $combined = array_combine($key, $val);
+
         foreach ($combined as $key => $val){
-            $count = count($val);
-            for($i=0; $i<$count; $i++){
-                $attr_key = $combined[0][$i];
-                $attr_val = $combined[1][$i];
-                if($attr_key === 'UPC:'){
-                    $this->upc = $attr_val;
-                }
-                if($attr_key === 'Condition:'){
-                    $this->attrs[ StringHelper::normalizeSpaceInString( $attr_key ) ] = StringHelper::normalizeSpaceInString( $attr_val );
-                }
+            if($key === 'UPC:'){
+                $this->upc = $val;
+            }
+            if($key === 'Condition:'){
+                $this->attributes[ StringHelper::normalizeSpaceInString( $key ) ] = StringHelper::normalizeSpaceInString( $val );
             }
         }
     }
@@ -94,12 +115,7 @@ class Parser extends HtmlParser
 
     public function getDescription(): string
     {
-        $full_desc = trim( $this->getHtml( '[itemprop="description"]' ) );
-        $pattern = "Features";
-        if(str_contains($full_desc, $pattern)){
-            $full_desc = substr($full_desc, 0, strpos($full_desc, $pattern));
-        }
-        return $full_desc;
+        return $this->full_description;
     }
 
     public function getShortDescription(): array
@@ -146,7 +162,7 @@ class Parser extends HtmlParser
 
     public function getAttributes(): ?array
     {
-        return $this->attrs ?? null;
+        return $this->attributes ?? null;
     }
 
     public function getImages(): array
