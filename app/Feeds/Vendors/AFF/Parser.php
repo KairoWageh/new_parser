@@ -14,10 +14,6 @@ class Parser extends HtmlParser
     private string $upc = '';
     private array $files = [];
     private int $avail = 0;
-//    private string $mpn = '';
-//    private int $list_price = 0;
-//    private array $attribute_key = [];
-//    private array $attribute_value = [];
     private string $full_description = '';
     private array $short_description = [];
     private string $video_src = '';
@@ -34,29 +30,6 @@ class Parser extends HtmlParser
             if ( str_contains( $val, '_' ) ) {
                 $this->mpn = $val;
             }
-//            // get short description from mounting text, in full description
-//            elseif(stripos($val, 'mounting') !== false){
-//                $mounting_txt = substr($val, stripos($val, 'mounting'));
-//                $this->short_description[] = $mounting_txt;
-//                unset($arr, $val);
-//            }
-//
-//
-//            // get attributes from specification text, in full description
-//            elseif(stripos($val, 'specification') !== false){
-//                $specification_txt = substr($val, stripos($val, 'specification'));
-//                $specification_array = explode('</li><li>', $specification_txt);
-//                foreach ($specification_array as $item){
-//                    preg_match('/^[^\-]*-\D*/', $item, $number);
-//                    if(isset($number[0])){
-//                        $attr_value = strlen($number[0]);
-//                        $attr_key = chop($item, $attr_value);
-//                        $this->attributes[$attr_key] = $attr_value;
-//                    }
-//                }
-//                unset($arr, $val);
-//            }
-
 
             // get dimensions from dimensions text, in full description
             elseif(stripos($val, 'dimensions') !== false){
@@ -163,17 +136,6 @@ class Parser extends HtmlParser
     public function getShortDescription(): array
     {
 
-//        if($this->exists('div#tab-description')){
-//            $short_description = $this->getContent('div#tab-warranty div.productView-description-tabContent');
-//        }
-//        if($this->exists('div#tab-warranty')){
-//            $warranty_section = $this->getContent('div#tab-warranty div.productView-description-tabContent');
-//            $warranty_section_string = implode('</li><li>', $warranty_section);
-//            $li_array = explode('</li><li>', $warranty_section_string);
-//            $short_description = array_merge($short_description, $li_array);
-//        }
-//        $short_desc = implode(',', $short_description);
-//        return $short_desc;
         return $this->short_description;
     }
 
