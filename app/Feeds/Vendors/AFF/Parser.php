@@ -14,11 +14,16 @@ class Parser extends HtmlParser
     private string $upc = '';
     private array $files = [];
     private int $avail = 0;
-    private string $mpn = '';
-    private int $list_price = 0;
-    private array $attribute_key = [];
-    private array $attribute_value = [];
+//    private string $mpn = '';
+//    private int $list_price = 0;
+//    private array $attribute_key = [];
+//    private array $attribute_value = [];
     private string $full_description = '';
+    private array $short_description = [];
+    private string $video_src = '';
+
+
+    public const SITE_LINK = 'https://www.affinitechstore.com';
 
     public function beforeParse(): void
     {
@@ -28,7 +33,33 @@ class Parser extends HtmlParser
             $val = strip_tags( $val );
             if ( str_contains( $val, '_' ) ) {
                 $this->mpn = $val;
-            }elseif(stripos($val, 'dimensions') !== false){
+            }
+//            // get short description from mounting text, in full description
+//            elseif(stripos($val, 'mounting') !== false){
+//                $mounting_txt = substr($val, stripos($val, 'mounting'));
+//                $this->short_description[] = $mounting_txt;
+//                unset($arr, $val);
+//            }
+//
+//
+//            // get attributes from specification text, in full description
+//            elseif(stripos($val, 'specification') !== false){
+//                $specification_txt = substr($val, stripos($val, 'specification'));
+//                $specification_array = explode('</li><li>', $specification_txt);
+//                foreach ($specification_array as $item){
+//                    preg_match('/^[^\-]*-\D*/', $item, $number);
+//                    if(isset($number[0])){
+//                        $attr_value = strlen($number[0]);
+//                        $attr_key = chop($item, $attr_value);
+//                        $this->attributes[$attr_key] = $attr_value;
+//                    }
+//                }
+//                unset($arr, $val);
+//            }
+
+
+            // get dimensions from dimensions text, in full description
+            elseif(stripos($val, 'dimensions') !== false){
                 $dimensions_txt = substr($val, stripos($val, 'dimensions'));
                 if ( str_contains( $dimensions_txt, 'x' ) ) {
                     $ar = explode( 'x', $dimensions_txt );
@@ -45,16 +76,26 @@ class Parser extends HtmlParser
                     }
                 }
             }
+
             elseif ( stripos( $val, 'MSRP' ) !== false ) {
                 $this->list_price = StringHelper::getMoney( $val );
             }
         }
+        if($this->exists('div#tab-warranty')){
+            $warranty_section = $this->getContent('div#tab-warranty div.productView-description-tabContent');
+            $warranty_section_string = implode('</li><li>', $warranty_section);
+            $this->short_description = explode('</li><li>', $warranty_section_string);
+        }
+
+
         if($this->exists('div.tabs-contents div#tab-addition div.productView-info-value a')){
             $this->filter( 'div.tabs-contents div#tab-addition div.productView-info-value a' )->each( function ( ParserCrawler $c ) {
                 if(stripos($c->attr('href'), '.pdf') !== false){
+                    $short_link = $c->attr('href');
+                    $file_link = self::SITE_LINK.$short_link;
                     $this->files = [
                         [
-                            'link' => $c->attr('href'),
+                            'link' => $file_link,
                             'name' => $this->getProduct()
                         ]
                     ];
@@ -65,28 +106,29 @@ class Parser extends HtmlParser
         if($this->exists('#tab-description .productView-description-tabContent')){
 
             $this->full_description = trim( $this->getHtml( '[itemprop="description"]' ) );
-            $pattern = "Features";
-            $regexpression = '/<table> .*/';
-            $replacemnet = '';
-
-            if(preg_match($regexpression, $this->full_description) == 1){
-                $html = str_get_html($regexpression);
-                $rows = $html->find('tr');
-                foreach ($rows as $row){
-                    foreach ($row->children() as $cell){
-                        if($this->exists('td.td')){
-                            $this->attribute_key[] = $this->getText('td.td');
-                        }
-                        if($this->exists('td.td2')){
-                            $this->attribute_value[] = $this->getText('td.td2');
-                        }
-                        $this->attributes = array_combine($this->attribute_key, $this->attribute_value);
+            $features = "Features";
+            $mounting = "Mounting";
+            $specification = "Specification";
+            if(str_contains($this->full_description, $features)){
+                $this->full_description = substr($this->full_description, 0, strpos($this->full_description, $features));
+            }
+            if(str_contains($this->full_description, $mounting)){
+                $mounting_txt = substr($this->full_description, stripos($this->full_description, $mounting));
+                $this->short_description[] = $mounting_txt;
+                $this->full_description = substr($this->full_description, 0, strpos($this->full_description, $mounting));
+            }
+            if(str_contains($this->full_description, $specification)){
+                $specification_txt = substr($this->full_description, stripos($this->full_description, $specification));
+                $specification_array = explode('</li><li>', $specification_txt);
+                foreach ($specification_array as $item){
+                    preg_match('/^[^\-]*-\D*/', $item, $number);
+                    if(isset($number[0])){
+                        $attr_value = strlen($number[0]);
+                        $attr_key = chop($item, $attr_value);
+                        $this->attributes[$attr_key] = $attr_value;
                     }
                 }
-            }
-            $this->full_description = preg_replace($regexpression, $replacemnet, $this->full_description);
-            if(str_contains($this->full_description, $pattern)){
-                $this->full_description = substr($this->full_description, 0, strpos($this->full_description, $pattern));
+                $this->full_description = substr($this->full_description, 0, strpos($this->full_description, $specification));
             }
         }
         $key = $this->getContent('dl.productView-info dt.productView-info-name');
@@ -120,19 +162,28 @@ class Parser extends HtmlParser
 
     public function getShortDescription(): array
     {
-        $short_description = [];
-        if($this->exists('div#tab-description')){
-            $short_description += $this->getContent('div#tab-warranty div.productView-description-tabContent');
-        }
-        if($this->exists('div#tab-warranty')){
-            $short_description += $this->getContent('div#tab-warranty div.productView-description-tabContent');
-        }
-        return $short_description;
+
+//        if($this->exists('div#tab-description')){
+//            $short_description = $this->getContent('div#tab-warranty div.productView-description-tabContent');
+//        }
+//        if($this->exists('div#tab-warranty')){
+//            $warranty_section = $this->getContent('div#tab-warranty div.productView-description-tabContent');
+//            $warranty_section_string = implode('</li><li>', $warranty_section);
+//            $li_array = explode('</li><li>', $warranty_section_string);
+//            $short_description = array_merge($short_description, $li_array);
+//        }
+//        $short_desc = implode(',', $short_description);
+//        return $short_desc;
+        return $this->short_description;
     }
 
     public function getCostToUs(): float
     {
-        return $this->getMoney( '.price--main' );
+        if($this->exists('.price--main')){
+            return $this->getMoney( '.price--main' );
+        }else{
+            return 0.0;
+        }
     }
 
     public function getListPrice(): ?float
@@ -159,6 +210,7 @@ class Parser extends HtmlParser
     {
         return $this->dims[ 'z' ] ?? null;
     }
+    
 
     public function getAttributes(): ?array
     {
@@ -167,11 +219,22 @@ class Parser extends HtmlParser
 
     public function getImages(): array
     {
-        if($this->exists('li.productView-imageCarousel-main-item a')){
-            return [ $this->getAttr( 'li.productView-imageCarousel-main-item a', 'href' ) ];
-        }else{
-            return [];
+        $indexs = [];
+        $images = [];
+        if($this->exists('li.productView-imageCarousel-main-item')){
+            $index = $this->getAttr('li.productView-imageCarousel-main-item', 'data-slick-index');
+            array_push($indexs, $index);
         }
+        for($image=0; $image<count($indexs); $image++){
+            if($this->exists('li.productView-imageCarousel-main-item a')){
+                if($indexs[$image] == $this->getAttr('li.productView-imageCarousel-main-item', 'data-slick-index')){
+                    $image_link = $this->getAttr( 'li.productView-imageCarousel-main-item a', 'href' );
+                    echo PHP_EOL.'image::'.$image_link.PHP_EOL;
+                    array_push($images, $image_link);
+                }
+            }
+        }
+        return $images;
     }
 
     public function getProductFiles(): array
@@ -187,4 +250,17 @@ class Parser extends HtmlParser
         return $this->avail;
     }
 
+    public function getVideos(): array
+    {
+        if($this->exists('div#tab-description div.productView-description-tabContent')){
+            $this->video_src = $this->getAttr('div#tab-description div.productView-description-tabContent p iframe', 'src');
+            return [[
+                'name' => '',
+                'provider' => 'youtube',
+                'video' => $this->video_src
+            ]];
+        }else{
+            return [];
+        }
+    }
 }
